@@ -1,8 +1,11 @@
 {
   "name": "cdp-chatbot",
   "version": "1.0.0",
-  "description": "A chatbot for answering CDP-related how-to questions",
+  "description": "A professional CDP assistant for answering questions about Segment, mParticle, Lytics, and Zeotap",
   "main": "src/server.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js"

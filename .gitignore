@@ -38,7 +38,7 @@ bower_components
 # Compiled binary addons (https://nodejs.org/api/addons.html)
 build/Release
 
-# Dependency directories
+# Dependencies
 node_modules/
 jspm_packages/
 
@@ -72,7 +72,7 @@ web_modules/
 # Yarn Integrity file
 .yarn-integrity
 
-# dotenv environment variable files
+# Environment variables
 .env
 .env.development.local
 .env.test.local
@@ -131,3 +131,13 @@ dist
 
 # windsurf rules
 .windsurfrules
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
