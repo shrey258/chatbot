@@ -135,7 +135,7 @@ app.post('/api/chat', async (req, res) => {
 
         User Question: ${message}
         
-        Please provide a clear, step-by-step answer. If the question is about comparing CDPs, highlight the key differences.`;
+        Please provide a clear, step-by-step answer. If the question is about comparing CDPs, highlight the key differences. Keep your responses natural and avoid using asterisks or other markdown formatting.`;
 
         const result = await chat.sendMessage(prompt);
         const response = await result.response;
