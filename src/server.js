@@ -15,6 +15,24 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
+// Request logging middleware
+app.use((req, res, next) => {
+    const start = Date.now();
+    res.on('finish', () => {
+        const duration = Date.now() - start;
+        console.log(JSON.stringify({
+            timestamp: new Date().toISOString(),
+            method: req.method,
+            path: req.path,
+            status: res.statusCode,
+            duration: `${duration}ms`,
+            userAgent: req.get('user-agent'),
+            ip: req.ip
+        }));
+    });
+    next();
+});
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -45,51 +63,125 @@ function cleanupResponse(text) {
 // Helper function to generate context for the AI
 const generateContext = () => {
   return `You are a helpful CDP (Customer Data Platform) expert assistant. You help users with questions about Segment, mParticle, Lytics, and Zeotap. 
-  Focus on providing clear, step-by-step answers to how-to questions. If a question is not related to these CDPs, politely explain that you can only help with CDP-related queries.`;
+  Focus on providing clear, step-by-step answers to how-to questions. If a question is not related to these CDPs, politely explain that you can only help with CDP-related queries.
+  
+  Key areas of expertise:
+  1. Data Integration and Sources
+  2. Identity Resolution
+  3. Audience Building
+  4. Data Activation
+  5. Privacy and Compliance
+  6. Cross-CDP Feature Comparison
+  
+  When answering:
+  - Provide step-by-step instructions
+  - Include relevant platform-specific details
+  - Highlight best practices
+  - Mention any prerequisites or requirements
+  - Compare approaches across CDPs when relevant`;
 };
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+    console.error(JSON.stringify({
+        timestamp: new Date().toISOString(),
+        type: 'error',
+        error: {
+            name: err.name,
+            message: err.message,
+            stack: err.stack
+        },
+        path: req.path,
+        method: req.method
+    }));
+    
+    res.status(500).json({ 
+        error: 'Internal Server Error',
+        message: process.env.NODE_ENV === 'development' ? err.message : 'An error occurred'
+    });
+});
 
 // Chat endpoint
 app.post('/api/chat', async (req, res) => {
-  try {
-    const { message } = req.body;
+    const requestStart = Date.now();
     
-    if (!message) {
-      return res.status(400).json({ error: 'Message is required' });
+    try {
+        console.log(JSON.stringify({
+            timestamp: new Date().toISOString(),
+            type: 'request',
+            endpoint: '/api/chat',
+            body: { message: req.body.message }
+        }));
+
+        const { message } = req.body;
+        
+        if (!message) {
+            throw new Error('Message is required');
+        }
+
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+        const chat = model.startChat({
+            history: [],
+            generationConfig: {
+                temperature: 0.7,
+                topK: 40,
+                topP: 0.95,
+                maxOutputTokens: 1024,
+            },
+        });
+        
+        const context = generateContext();
+        const prompt = `${context}
+
+        User Question: ${message}
+        
+        Please provide a clear, step-by-step answer. If the question is about comparing CDPs, highlight the key differences.`;
+
+        const result = await chat.sendMessage(prompt);
+        const response = await result.response;
+        const text = cleanupResponse(response.text());
+
+        const duration = Date.now() - requestStart;
+        console.log(JSON.stringify({
+            timestamp: new Date().toISOString(),
+            type: 'response',
+            endpoint: '/api/chat',
+            duration: `${duration}ms`,
+            status: 'success'
+        }));
+
+        res.json({ response: text });
+    } catch (error) {
+        const duration = Date.now() - requestStart;
+        console.error(JSON.stringify({
+            timestamp: new Date().toISOString(),
+            type: 'error',
+            endpoint: '/api/chat',
+            error: {
+                name: error.name,
+                message: error.message,
+                stack: error.stack
+            },
+            duration: `${duration}ms`
+        }));
+        
+        res.status(500).json({ 
+            error: 'Failed to process your request',
+            message: process.env.NODE_ENV === 'development' ? error.message : 'An error occurred while processing your request'
+        });
     }
-
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-    const chat = model.startChat({
-      history: [],
-      generationConfig: {
-        temperature: 0.7,
-        topK: 40,
-        topP: 0.95,
-        maxOutputTokens: 1024,
-      },
-    });
-    
-    const prompt = `You are a helpful CDP (Customer Data Platform) expert assistant. Help users with questions about Segment, mParticle, Lytics, and Zeotap. Focus on providing clear, step-by-step answers to how-to questions. If a question is not related to these CDPs, politely explain that you can only help with CDP-related queries. Keep your responses natural and avoid using asterisks or other markdown formatting.
-
-    User Question: ${message}
-    
-    Please provide a clear, step-by-step answer. If the question is about comparing CDPs, highlight the key differences.`;
-
-    const result = await chat.sendMessage(prompt);
-    const response = await result.response;
-    const text = cleanupResponse(response.text());
-
-    res.json({ response: text });
-  } catch (error) {
-    console.error('Error processing chat request:', error);
-    res.status(500).json({ error: 'Failed to process your request' });
-  }
 });
 
 // Serve the main page
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/index.html'));
+    res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
 app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
+    console.log(JSON.stringify({
+        timestamp: new Date().toISOString(),
+        type: 'startup',
+        message: `Server running at http://localhost:${port}`,
+        environment: process.env.NODE_ENV || 'development'
+    }));
 });
